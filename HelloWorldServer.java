@@ -64,15 +64,6 @@ public class HelloWorldServer {
     }
   }
 
-  /**
-   * Main launches the server from the command line.
-   */
-  public static void main(String[] args) throws IOException, InterruptedException {
-    final HelloWorldServer server = new HelloWorldServer();
-    server.start();
-    server.blockUntilShutdown();
-  }
-
   private class GreeterImpl extends GreeterGrpc.GreeterImplBase {
 
     @Override
@@ -89,5 +80,68 @@ public class HelloWorldServer {
       responseObserver.onCompleted();
     }
 
+  }
+
+  private final ManagedChannel channel;
+  private final GreeterGrpc.GreeterBlockingStub blockingStub;
+
+  /** Construct client connecting to HelloWorld server at {@code host:port}. */
+  public HelloWorldServer(String host, int port) {
+    this(ManagedChannelBuilder.forAddress(host, port)
+        // Channels are secure by default (via SSL/TLS). For the example we disable TLS to avoid
+        // needing certificates.
+        .usePlaintext(true)
+        .build());
+  }
+
+  /** Construct client for accessing RouteGuide server using the existing channel. */
+  HelloWorldServer(ManagedChannel channel) {
+    this.channel = channel;
+    blockingStub = GreeterGrpc.newBlockingStub(channel);
+  }
+
+  public void shutdown() throws InterruptedException {
+    channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+  }
+
+  /** Say hello to server. */
+  public void greet(String name) {
+    logger.info("Will try to greet " + name + " ...");
+    HelloRequest request = HelloRequest.newBuilder().setName(name).build();
+    HelloReply response;
+    try {
+      response = blockingStub.sayHello(request);
+    } catch (StatusRuntimeException e) {
+      logger.log(Level.WARNING, "RPC failed: {0}", e.getStatus());
+      return;
+    }
+    logger.info("Greeting: " + response.getMessage());
+    try {
+      response = blockingStub.sayHelloAgain(request);
+    } catch (StatusRuntimeException e) {
+      logger.log(Level.WARNING, "RPC failed: {0}", e.getStatus());
+      return;
+    }
+    logger.info("Greeting: " + response.getMessage());
+    }
+
+  /**
+   * Greet server. If provided, the first element of {@code args} is the name to use in the
+   * greeting.
+   */
+  public static void main(String[] args) throws Exception {
+    HelloWorldServer server = new HelloWorldServer("localhost", 50051);
+    server.start();
+    server.blockUntilShutdown();
+    try {
+      /* Access a service running on the local machine on port 50051 */
+      String user = "Arthur";
+      if (args.length > 0) {
+        user = args[0]; /* Use the arg as the name to greet if provided */
+      }
+      server.greet(user);
+    } finally {
+      server.shutdown();
+    }
   }
 }
