@@ -27,6 +27,8 @@ service Greeter {
   rpc SayHello (HelloRequest) returns (HelloReply) {}
   // Sends another greeting
   rpc SayHelloAgain (HelloRequest) returns (HelloReply) {}
+
+  rpc connect (ConnectMessage) returns (Empty) {}
 }
 
 // The request message containing the user's name.
@@ -37,4 +39,12 @@ message HelloRequest {
 // The response message containing the greetings
 message HelloReply {
   string message = 1;
+}
+
+message Empty {}
+
+message ConnectMessage {
+  string node = 1;
+  string newNode = 2;
+  int32 timestamp = 3;
 }
