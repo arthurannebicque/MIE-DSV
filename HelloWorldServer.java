@@ -21,6 +21,12 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.logging.Logger;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.Scanner;
 
 /**
  * Server that manages startup/shutdown of a {@code Greeter} server.
@@ -94,6 +100,16 @@ public class HelloWorldServer {
         .build());
   }
 
+  public void changeIP(String host, String port) 
+    {
+
+    this(ManagedChannelBuilder.forAddress(host, port)
+        // Channels are secure by default (via SSL/TLS). For the example we disable TLS to avoid
+        // needing certificates.
+        .usePlaintext(true)
+        .build());
+    }
+
   /** Construct client for accessing RouteGuide server using the existing channel. */
   HelloWorldServer(ManagedChannel channel) {
     this.channel = channel;
@@ -125,23 +141,39 @@ public class HelloWorldServer {
     logger.info("Greeting: " + response.getMessage());
     }
 
+  public static HelloWorldServer previousNode;
+  public static HelloWorldServer nextNode;
   /**
    * Greet server. If provided, the first element of {@code args} is the name to use in the
    * greeting.
    */
+  public void connectTo( String ip) {
+
+  }
+
   public static void main(String[] args) throws Exception {
     HelloWorldServer server = new HelloWorldServer("localhost", 50051);
     server.start();
-    server.blockUntilShutdown();
-    try {
-      /* Access a service running on the local machine on port 50051 */
-      String user = "Arthur";
-      if (args.length > 0) {
-        user = args[0]; /* Use the arg as the name to greet if provided */
+    //server.blockUntilShutdown();
+    Scanner scanner = new Scanner(System.in);
+    String message = null;
+    while (true) {
+      message = scanner.nextLine();
+      if (message.indexOf("/connect ") == 0) {
+        String ip = message.substring(8).trim();
+        server.shutdown();
+        server.changeIP(ip, 50051);
+        server.start();
+        ConnectMessage request = ConnectMessage.newBuilder();
+        request.setNode(ip);
+        request.setNewNode("10.0.0.9" + ":50051");
+        request.setTimestamp(System.currentTimeMillis() / 1000L);
+        request.build();
+        server.server.connect(request);
       }
-      server.greet(user);
-    } finally {
-      server.shutdown();
+      /* Access a service running on the local machine on port 50051 */
+      String user = ip;
+      server.greet(message);
     }
   }
 }
