@@ -36,11 +36,14 @@ public class HelloWorldServer {
 
   private Server server;
 
+  private GreeterImpl greeterImpl;
+
   private void start() throws IOException {
     /* The port on which the server should run */
     int port = 50051;
+    greeterImpl = new GreeterImpl();
     server = ServerBuilder.forPort(port)
-        .addService(new GreeterImpl())
+        .addService(greeterImpl)
         .build()
         .start();
     logger.info("Server started, listening on " + port);
@@ -72,6 +75,9 @@ public class HelloWorldServer {
 
   private class GreeterImpl extends GreeterGrpc.GreeterImplBase {
 
+    public String before:
+    public String after:
+
     @Override
     public void sayHello(HelloRequest req, StreamObserver<HelloReply> responseObserver) {
       HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()).build();
@@ -84,6 +90,17 @@ public class HelloWorldServer {
       HelloReply reply = HelloReply.newBuilder().setMessage("Hello again " + req.getName()).build();
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
+    }
+
+    @Override
+    public void InsertBefore(InsertBeforeRequest req, StreamObserver<Empty> responseObserver) {
+      InsertBeforeReply reply = InsertBeforeReply.newBuilder().setBefore(this.before).build();
+      responseObserver.onNext(reply);
+      responseObserver.onCompleted();
+    }
+
+    @Override
+    public void InsertAfter(InsertAfterRequest req, StreamObserver<Empty> responseObserver) {
     }
 
   }
@@ -100,7 +117,7 @@ public class HelloWorldServer {
         .build());
   }
 
-  public void changeIP(String host, String port) 
+  public void changeIP(String host, String port)
     {
 
     this(ManagedChannelBuilder.forAddress(host, port)
@@ -143,17 +160,10 @@ public class HelloWorldServer {
 
   public static HelloWorldServer previousNode;
   public static HelloWorldServer nextNode;
-  /**
-   * Greet server. If provided, the first element of {@code args} is the name to use in the
-   * greeting.
-   */
-  public void connectTo( String ip) {
-
-  }
 
   public static void main(String[] args) throws Exception {
-    HelloWorldServer server = new HelloWorldServer("localhost", 50051);
-    server.start();
+    HelloWorldServer self = new HelloWorldServer("localhost", 50051);
+    self.start();
     //server.blockUntilShutdown();
     Scanner scanner = new Scanner(System.in);
     String message = null;
@@ -161,19 +171,25 @@ public class HelloWorldServer {
       message = scanner.nextLine();
       if (message.indexOf("/connect ") == 0) {
         String ip = message.substring(8).trim();
-        server.shutdown();
-        server.changeIP(ip, 50051);
-        server.start();
-        ConnectMessage request = ConnectMessage.newBuilder();
-        request.setNode(ip);
-        request.setNewNode("10.0.0.9" + ":50051");
-        request.setTimestamp(System.currentTimeMillis() / 1000L);
+        self.greeterImpl.nextIP = ip;
+        self.shutdown();
+        self.changeIP(ip, 50051);
+        self.start();
+
+        InsertBeforeRequest request = InsertBeforeRequest.newBuilder();
+        request.setNewBefore(ip);
         request.build();
-        server.server.connect(request);
+
+        InsertBeforeReply reply = blockingStub.InsertBefore(request);
+        greeterImpl.before = reply.getBefore();
+
+        InsertAfterRequest request = InsertAfterRequest.newBuilder();
+        request.setNewAfter(ip);
+        request.build();
       }
       /* Access a service running on the local machine on port 50051 */
       String user = ip;
-      server.greet(message);
+      self.greet(message);
     }
   }
 }
