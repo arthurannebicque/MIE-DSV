@@ -75,8 +75,8 @@ public class HelloWorldServer {
 
   private class GreeterImpl extends GreeterGrpc.GreeterImplBase {
 
-    public String before:
-    public String after:
+    public String before;
+    public String after;
 
     @Override
     public void sayHello(HelloRequest req, StreamObserver<HelloReply> responseObserver) {
@@ -93,20 +93,20 @@ public class HelloWorldServer {
     }
 
     @Override
-    public void InsertBefore(InsertBeforeRequest req, StreamObserver<Empty> responseObserver) {
+    public void insertBefore(InsertBeforeRequest req, StreamObserver<InsertBeforeReply> responseObserver) {
       InsertBeforeReply reply = InsertBeforeReply.newBuilder().setBefore(this.before).build();
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     }
 
     @Override
-    public void InsertAfter(InsertAfterRequest req, StreamObserver<Empty> responseObserver) {
+    public void insertAfter(InsertAfterRequest req, StreamObserver<Empty> responseObserver) {
     }
 
   }
 
-  private final ManagedChannel channel;
-  private final GreeterGrpc.GreeterBlockingStub blockingStub;
+  private ManagedChannel channel;
+  private GreeterGrpc.GreeterBlockingStub blockingStub;
 
   /** Construct client connecting to HelloWorld server at {@code host:port}. */
   public HelloWorldServer(String host, int port) {
@@ -117,14 +117,13 @@ public class HelloWorldServer {
         .build());
   }
 
-  public void changeIP(String host, String port)
+  public void changeIP(String host, int port)
     {
-
-    this(ManagedChannelBuilder.forAddress(host, port)
+      ManagedChannelBuilder.forAddress(host, port)
         // Channels are secure by default (via SSL/TLS). For the example we disable TLS to avoid
         // needing certificates.
         .usePlaintext(true)
-        .build());
+        .build();
     }
 
   /** Construct client for accessing RouteGuide server using the existing channel. */
@@ -171,25 +170,24 @@ public class HelloWorldServer {
       message = scanner.nextLine();
       if (message.indexOf("/connect ") == 0) {
         String ip = message.substring(8).trim();
-        self.greeterImpl.nextIP = ip;
+        self.greeterImpl.after = ip;
         self.shutdown();
         self.changeIP(ip, 50051);
         self.start();
 
-        InsertBeforeRequest request = InsertBeforeRequest.newBuilder();
-        request.setNewBefore(ip);
-        request.build();
+        InsertBeforeRequest request1 = InsertBeforeRequest.newBuilder()
+        .setNewBefore(ip)
+        .build();
 
-        InsertBeforeReply reply = blockingStub.InsertBefore(request);
-        greeterImpl.before = reply.getBefore();
 
-        InsertAfterRequest request = InsertAfterRequest.newBuilder();
-        request.setNewAfter(ip);
-        request.build();
+        InsertBeforeReply reply = self.blockingStub.insertBefore(request1);
+        self.greeterImpl.before = reply.getBefore();
+
+        InsertAfterRequest request2 = InsertAfterRequest.newBuilder()
+        .setNewAfter(ip)
+        .build();
+
       }
-      /* Access a service running on the local machine on port 50051 */
-      String user = ip;
-      self.greet(message);
     }
   }
 }
